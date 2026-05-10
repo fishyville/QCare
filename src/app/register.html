@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QCare — Daftar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <div class="auth-strip"></div>
+  <div class="page">
+
+    <div class="top-bar" style="margin-bottom:20px">
+      <button class="back-btn" onclick="window.location.href='login.html'">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Kembali
+      </button>
+    </div>
+
+    <div id="logo-mount" style="margin-bottom:20px"></div>
+
+    <div class="auth-hero">
+      <h2>Buat akun baru ✨</h2>
+      <p>Daftarkan diri anda untuk mulai menggunakan layanan antrian digital.</p>
+    </div>
+
+    <div class="field">
+      <label>Nama lengkap</label>
+      <input type="text" id="reg-nama" placeholder="Contoh: Adi Budi">
+      <p class="err" id="err-nama">Nama wajib diisi</p>
+    </div>
+
+    <div class="field">
+      <label>Alamat email</label>
+      <input type="email" id="reg-email" placeholder="email@contoh.com">
+      <p class="err" id="err-email">Format email tidak valid</p>
+    </div>
+
+    <div class="field">
+      <label>Nomor telepon</label>
+      <input type="tel" id="reg-telp" placeholder="08xx-xxxx-xxxx">
+      <p class="err" id="err-telp">Nomor telepon wajib diisi</p>
+    </div>
+
+    <button class="btn-pink" onclick="doRegister()">
+      Buat akun
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </button>
+
+    <div class="switch-link">
+      Sudah punya akun? <a href="login.html">Masuk di sini</a>
+    </div>
+
+  </div>
+</div>
+
+<script src="state.js"></script>
+<script>
+  document.getElementById('logo-mount').innerHTML = LOGO_HTML;
+
+  function doRegister() {
+    const nama  = document.getElementById('reg-nama').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const telp  = document.getElementById('reg-telp').value.trim();
+
+    let ok = true;
+
+    if (!nama) { show('err-nama'); ok = false; } else hide('err-nama');
+    if (!email || !/\S+@\S+\.\S+/.test(email)) { show('err-email'); ok = false; } else hide('err-email');
+    if (!telp) { show('err-telp'); ok = false; } else hide('err-telp');
+
+    if (!ok) return;
+
+    State.load();
+
+    // ensure users array exists
+    State.data.users = State.data.users || [];
+
+    // check duplicate email (important!)
+    const exists = State.data.users.find(u => u.email === email);
+    if (exists) {
+      alert("Email sudah terdaftar");
+      return;
+    }
+
+    // save user into database 
+    const newUser = { name: nama, email, phone: telp };
+
+    State.data.users.push(newUser);
+
+    // set current session user
+    State.data.user = newUser;
+
+    State.save();
+
+    window.location.href = 'app.html';
+  }
+</script>
+</body>
+</html>
