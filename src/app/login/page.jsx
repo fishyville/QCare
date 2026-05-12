@@ -2,74 +2,118 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import State from "../../lib/state";
 
 export default function LoginPage() {
   const router = useRouter();
+  
+  // Form States
   const [email, setEmail] = useState("");
-  const [error, setError] = useState(false);
+  const [password, setPassword] = useState("");
+  
+  // UI States
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [errEmail, setErrEmail] = useState(false);
 
-  useEffect(() => {
-    State.load();
-    if (State.data.user) router.push("/app");
-  }, []);
+  async function doLogin() {
+    // Reset status
+    setErrorMsg("");
+    setErrEmail(false);
 
-  function doLogin() {
+    // 1. Validasi Client-side sederhana
     if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      setError(true);
+      setErrEmail(true);
       return;
     }
 
-    setError(false);
-
-    State.load();
-
-    const found = (State.data.users || []).find(
-      (u) => u.email === email
-    );
-
-    if (!found) {
-      alert("Akun belum terdaftar. Silakan daftar terlebih dahulu.");
+    if (!password) {
+      setErrorMsg("Password wajib diisi");
       return;
     }
 
-    State.data.user = found;
-    State.save();
+    setLoading(true);
 
-    router.push("/app");
+    try {
+      // 2. Panggil API Login
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        // Tampilkan pesan error dari server (e.g., "Email atau password salah")
+        setErrorMsg(data.error || "Login gagal");
+      } else {
+        // 3. Login Berhasil
+        // Simpan user data ke localStorage
+        localStorage.setItem("user", JSON.stringify({
+          id: data.user.id,
+          name: data.user.name,
+          email: data.user.email,
+        }));
+        
+        alert("Login berhasil!");
+        router.push("/dashboard");
+      }
+    } catch (err) {
+      setErrorMsg("Gagal koneksi ke server");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div className="app">
       <div className="page">
-
         <div className="auth-hero">
-          <h2>Selamat datang kembali 👋</h2>
+          <h2>Selamat datang kembali</h2>
           <p>Masuk untuk melihat atau membuat jadwal antrian anda.</p>
         </div>
 
+        {/* Banner Error */}
+        {errorMsg && (
+          <div className="err-banner" style={{ color: "red", marginBottom: "10px", fontSize: "14px" }}>
+            {errorMsg}
+          </div>
+        )}
+
+        {/* Input Email */}
         <div className="field">
           <label>Alamat email</label>
-
           <input
             type="email"
             placeholder="email@contoh.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
           />
-
-          {error && (
-            <p className="err">Format email tidak valid</p>
-          )}
+          {errEmail && <p className="err">Format email tidak valid</p>}
         </div>
 
-        <button className="btn-pink" onClick={doLogin}>
-          Masuk ke akun
-        </button>
+        {/* Input Password */}
+        <div className="field">
+          <label>Password</label>
+          <input
+            type="password"
+            placeholder="Masukkan password anda"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
+          />
+        </div>
 
-        <p className="hint">
-          Demo: hanya email yang sudah terdaftar bisa login
-        </p>
+        <button 
+          className="btn-pink" 
+          onClick={doLogin} 
+          disabled={loading}
+        >
+          {loading ? "Memproses..." : "Masuk ke akun"}
+        </button>
 
         <div className="divider">
           <hr />
@@ -80,10 +124,10 @@ export default function LoginPage() {
         <button
           className="btn-outline"
           onClick={() => router.push("/register")}
+          disabled={loading}
         >
           Buat akun baru
         </button>
-
       </div>
     </div>
   );

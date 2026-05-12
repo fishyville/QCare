@@ -38,6 +38,7 @@ model Appointment {
   endAppointment      DateTime?
 
   createdDateTime     DateTime @default(now())
+  booking             DateTime
 
   // RELATION
   userId              String
