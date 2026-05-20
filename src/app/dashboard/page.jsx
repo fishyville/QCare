@@ -216,6 +216,7 @@ export default function DashboardPage() {
           booking:     slotToBookingISO(selectedSlot),
         }),
       });
+      console.log(user.id)
       const json = await res.json();
       if (!json.success) throw new Error(json.error || "Gagal membuat antrian");
       setMyAppointmentId(json.data.id);
@@ -281,7 +282,7 @@ export default function DashboardPage() {
           <div className="top-bar">
             <div>
               <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{dateStr}</p>
-              <h2>Halo, {user.name} 👋</h2>
+              <h2>Halo, {user.name}</h2>
             </div>
             <button className="back-btn" onClick={handleLogout} title="Keluar">
               <IconLogout /> Keluar
@@ -512,7 +513,7 @@ export default function DashboardPage() {
           {myIdx === 0 && (
             <div className="info-box" style={{ background: "#EAF3DE", color: "#3B6D11", border: "1.5px solid #B2D98A", marginBottom: 14 }}>
               <IconCheck />
-              <strong>Kamu giliran berikutnya!</strong> Siap-siap ya 🎉
+              <strong>Kamu giliran berikutnya!</strong> Siap-siap ya
             </div>
           )}
 

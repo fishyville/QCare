@@ -100,3 +100,46 @@ export async function POST(req) {
   }
 }
 
+export async function DELETE(req, { params }) {
+  try {
+    // Mengambil ID antrian dari dynamic URL parameter (misal: /api/appointment/A001)
+    const { id } = params;
+
+    if (!id) {
+      return Response.json(
+        { success: false, error: "ID Antrian wajib disertakan" },
+        { status: 400 }
+      );
+    }
+
+    // 1. Cek terlebih dahulu apakah antrian tersebut ada di database
+    const existingAppointment = await prisma.appointment.findUnique({
+      where: { id: id },
+    });
+
+    if (!existingAppointment) {
+      return Response.json(
+        { success: false, error: "Antrian tidak ditemukan" },
+        { status: 404 }
+      );
+    }
+
+    // 2. Jika ada, lakukan proses penghapusan
+    const deletedAppointment = await prisma.appointment.delete({
+      where: { id: id },
+    });
+
+    return Response.json({
+      success: true,
+      message: `Antrian dengan ID ${id} berhasil dihapus`,
+      data: deletedAppointment,
+    });
+
+  } catch (error) {
+    console.error("DELETE Appointment Error:", error);
+    return Response.json(
+      { success: false, error: "Terjadi kesalahan saat menghapus antrian" },
+      { status: 500 }
+    );
+  }
+}

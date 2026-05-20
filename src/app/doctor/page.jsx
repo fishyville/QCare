@@ -279,7 +279,7 @@ export default function DoctorDashboardPage() {
         <div className="top-bar">
           <div>
             <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{dateStr}</p>
-            <h2>Halo, {doctor.name} 👨‍⚕️</h2>
+            <h2>Halo, {doctor.name}</h2>
           </div>
           <button className="back-btn" onClick={handleLogout}>
             <IconLogout /> Keluar

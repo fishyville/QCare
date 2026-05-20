@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -18,8 +19,10 @@ model User {
 }
 
 model Doctor {
-  id           String        @id @default(uuid())
+  id           String        @id
   name         String
+  email        String        @unique  // Ditambahkan
+  password     String
   specialty    String?
   createdAt    DateTime      @default(now())
   appointments Appointment[]

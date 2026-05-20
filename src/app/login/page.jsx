@@ -34,8 +34,12 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 2. Panggil API Login
-      const res = await fetch("/api/login", {
+      // 2. Tentukan endpoint API berdasarkan domain email
+      const isDoctor = email.endsWith("@qcare.com");
+      const apiEndpoint = isDoctor ? "/api/doctor_login" : "/api/login";
+
+      // 3. Panggil API Login yang sesuai
+      const res = await fetch(apiEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -46,19 +50,34 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        // Tampilkan pesan error dari server (e.g., "Email atau password salah")
         setErrorMsg(data.error || "Login gagal");
       } else {
-        // 3. Login Berhasil
-        // Simpan user data ke localStorage
-        localStorage.setItem("user", JSON.stringify({
-          id: data.user.id,
-          name: data.user.name,
-          email: data.user.email,
-        }));
+        // 4. Login Berhasil
+        if (isDoctor) {
+          // Simpan doctor data
+          localStorage.setItem("doctor", JSON.stringify({
+            id: data.doctor.id,
+            name: data.doctor.name,
+            email: data.doctor.email,
+            specialty: data.doctor.specialty,
+          }));
+          localStorage.setItem("userType", "doctor");
+        } else {
+          // Simpan user data
+          localStorage.setItem("user", JSON.stringify({
+            id: data.user.id,
+            name: data.user.name,
+            email: data.user.email,
+          }));
+          localStorage.setItem("userType", "user");
+        }
         
         alert("Login berhasil!");
-        router.push("/dashboard");
+        if (isDoctor){
+          router.push("/doctor");
+        } else {
+          router.push("/dashboard");
+        }
       }
     } catch (err) {
       setErrorMsg("Gagal koneksi ke server");
