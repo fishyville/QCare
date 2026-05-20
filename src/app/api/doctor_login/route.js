@@ -16,22 +16,21 @@ export async function POST(req) {
       );
     }
 
-    // 2. CARI USER BERDASARKAN EMAIL
-    const user = await prisma.user.findUnique({
+    // 2. CARI DOCTOR BERDASARKAN EMAIL
+    const doctor = await prisma.doctor.findUnique({
       where: { email },
     });
 
-    // Jika user tidak ditemukan
-    if (!user) {
+    // Jika doctor tidak ditemukan
+    if (!doctor) {
       return Response.json(
         { error: "Email atau password salah" },
-        { status: 401 } // Unauthorized
+        { status: 401 }
       );
     }
 
     // 3. VERIFIKASI PASSWORD
-    // Membandingkan password dari input dengan hashedPassword di database
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, doctor.password);
 
     if (!isPasswordValid) {
       return Response.json(
@@ -44,15 +43,16 @@ export async function POST(req) {
     // Jangan kirim password kembali ke client
     return Response.json({
       message: "Login berhasil",
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email
+      doctor: {
+        id: doctor.id,
+        name: doctor.name,
+        email: doctor.email,
+        specialty: doctor.specialty,
       },
     });
 
   } catch (error) {
-    console.error("Login Error:", error);
+    console.error("Doctor Login Error:", error);
     return Response.json(
       { error: "Terjadi kesalahan server" },
       { status: 500 }
