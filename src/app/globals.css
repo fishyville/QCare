@@ -7,13 +7,27 @@
 }
 body{
   font-family:'DM Sans',sans-serif;background:#f0eee9;
-  min-height:100vh;display:flex;align-items:flex-start;
+  min-height:100vh;display:flex;align-items:center;
   justify-content:center;padding:24px 12px;
 }
 .app{
-  width:100%;max-width:480px;background:var(--surface);
-  border-radius:20px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.10);
+  width: 100%;
+  max-width: 480px;      /* Mobile */
+  background: var(--surface);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 32px rgba(0,0,0,.10);
 }
+.app.auth {
+  max-width: 420px;    /* Smaller than 480px */
+}
+
+@media (min-width: 768px) {
+  .app.auth {
+    max-width: 440px;  /* Still compact on tablet/desktop */
+  }
+}
+
 .page{padding:28px 24px}
 
 /* Accent strip */
@@ -185,3 +199,35 @@ body{
 svg.icon{width:16px;height:16px;vertical-align:-3px;margin-right:4px;flex-shrink:0}
 
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.app {
+  width: 100%;
+  max-width: 480px;      /* Mobile */
+  background: var(--surface);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 32px rgba(0,0,0,.10);
+}
+
+/* Tablet */
+@media (min-width: 768px) {
+  .app {
+    max-width: 800px;
+    border-radius: 24px;
+  }
+  
+  .page {
+    padding: 40px 32px;  /* More padding for desktop */
+  }
+}
+
+/* Desktop */
+@media (min-width: 1024px) {
+  .app {
+    max-width: 1200px;
+  }
+  
+  .page {
+    padding: 48px 48px;
+  }
+}

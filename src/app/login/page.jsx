@@ -87,7 +87,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="app">
+    <div className="app auth">  {/* Add 'auth' class here */}
       <div className="page">
         <div className="auth-hero">
           <h2>Selamat datang kembali</h2>
