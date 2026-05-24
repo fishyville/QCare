@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 /* ─── Constants ─── */
@@ -62,6 +62,49 @@ const IconCheck = () => (
     <polyline points="20 6 9 17 4 12"/>
   </svg>
 );
+
+/* ─── Bell Icon ─── */
+const IconBell = () => (
+  <svg className="notif-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+);
+
+/* ─── NotificationBell ─── */
+function NotificationBell({ notifications, unreadCount, open, onToggle, onMarkAllRead }) {
+  function formatTime(date) {
+    return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  }
+  return (
+    <div className="notif-wrap">
+      <button className="notif-btn" onClick={onToggle} title="Notifikasi">
+        <IconBell />
+        {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
+      </button>
+      {open && (
+        <div className="notif-dropdown">
+          <div className="notif-dropdown-head">
+            <span>Notifikasi</span>
+            {unreadCount > 0 && (
+              <button className="notif-read-all" onClick={onMarkAllRead}>Tandai semua dibaca</button>
+            )}
+          </div>
+          {notifications.length === 0
+            ? <p className="notif-empty">Belum ada notifikasi</p>
+            : notifications.map(n => (
+              <div key={n.id} className={`notif-item${n.read ? "" : " unread"}`}>
+                <p className="notif-item-title">{n.title}</p>
+                <p className="notif-item-body">{n.body}</p>
+                <p className="notif-item-time">{formatTime(n.time)}</p>
+              </div>
+            ))
+          }
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ─── QueueList ─── */
 function QueueList({ items, myAppointmentId, showMeBadge }) {
@@ -151,6 +194,12 @@ export default function DashboardPage() {
   const [dateStr, setDateStr]                 = useState("");
   const [dateShort, setDateShort]             = useState("");
 
+  /* notifications */
+  const [notifications, setNotifications]     = useState([]);
+  const [notifOpen, setNotifOpen]             = useState(false);
+  const notifTimersRef                        = useRef([]);
+  const unreadCount                           = notifications.filter(n => !n.read).length;
+
   /* ── Auth guard ── */
   useEffect(() => {
     const u = getSessionUser();
@@ -180,6 +229,54 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => { fetchQueue(); }, [fetchQueue]);
+
+  /* ── Notifications ── */
+  function addNotification(title, body) {
+    setNotifications(prev => [{ id: Date.now(), title, body, time: new Date(), read: false }, ...prev]);
+    if (typeof window !== "undefined" && Notification.permission === "granted") {
+      new Notification(title, { body });
+    }
+  }
+
+  function scheduleNotifications(appointmentISO) {
+    notifTimersRef.current.forEach(clearTimeout);
+    notifTimersRef.current = [];
+    const appointmentTime = new Date(appointmentISO).getTime();
+    const now = Date.now();
+    const thirtyMinMs = appointmentTime - 30 * 60 * 1000 - now;
+    const atTimeMs    = appointmentTime - now;
+    if (thirtyMinMs > 0) {
+      notifTimersRef.current.push(setTimeout(() => {
+        addNotification("⏰ 30 Menit Lagi!", "Jadwal konsultasimu 30 menit lagi. Bersiaplah!");
+      }, thirtyMinMs));
+    }
+    if (atTimeMs > 0) {
+      notifTimersRef.current.push(setTimeout(() => {
+        addNotification("🏥 Waktunya!", "Jadwal konsultasimu sekarang. Segera menuju ruang dokter!");
+      }, atTimeMs));
+    }
+  }
+
+  /* Update browser tab title with unread count */
+  useEffect(() => {
+    const base = "QCare - Sistem Antrian Digital";
+    document.title = unreadCount > 0 ? `(${unreadCount}) ${base}` : base;
+  }, [unreadCount]);
+
+  /* Close dropdown when clicking outside */
+  useEffect(() => {
+    if (!notifOpen) return;
+    function handleClick(e) {
+      if (!e.target.closest(".notif-wrap")) setNotifOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [notifOpen]);
+
+  /* Cleanup timers on unmount */
+  useEffect(() => {
+    return () => notifTimersRef.current.forEach(clearTimeout);
+  }, []);
 
   /* ── Derived ── */
   const myIdx         = queue.findIndex(q => q.id === myAppointmentId);
@@ -220,6 +317,10 @@ export default function DashboardPage() {
       const json = await res.json();
       if (!json.success) throw new Error(json.error || "Gagal membuat antrian");
       setMyAppointmentId(json.data.id);
+      scheduleNotifications(json.data.booking);
+      if (typeof window !== "undefined" && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
       await fetchQueue();
       setScreen("queue");
     } catch (err) {
@@ -233,6 +334,8 @@ export default function DashboardPage() {
   async function handleCancel() {
     setCancelling(true);
     try {
+      notifTimersRef.current.forEach(clearTimeout);
+      notifTimersRef.current = [];
       // await fetch(`/api/dashboard?id=${myAppointmentId}`, { method: "DELETE" });
       setMyAppointmentId(null);
       setComplaint("");
@@ -284,9 +387,20 @@ export default function DashboardPage() {
               <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{dateStr}</p>
               <h2>Halo, {user.name}</h2>
             </div>
-            <button className="back-btn" onClick={handleLogout} title="Keluar">
-              <IconLogout /> Keluar
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {myAppointmentId && (
+                <NotificationBell
+                  notifications={notifications}
+                  unreadCount={unreadCount}
+                  open={notifOpen}
+                  onToggle={() => setNotifOpen(p => !p)}
+                  onMarkAllRead={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+                />
+              )}
+              <button className="back-btn" onClick={handleLogout} title="Keluar">
+                <IconLogout /> Keluar
+              </button>
+            </div>
           </div>
 
           {/* Queue count badge */}
@@ -469,9 +583,18 @@ export default function DashboardPage() {
               <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{dateStr}</p>
               <h2>Antrianmu</h2>
             </div>
-            <button className="back-btn" onClick={handleLogout}>
-              <IconLogout /> Keluar
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <NotificationBell
+                notifications={notifications}
+                unreadCount={unreadCount}
+                open={notifOpen}
+                onToggle={() => setNotifOpen(p => !p)}
+                onMarkAllRead={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+              />
+              <button className="back-btn" onClick={handleLogout}>
+                <IconLogout /> Keluar
+              </button>
+            </div>
           </div>
 
           {/* Ticket card */}
