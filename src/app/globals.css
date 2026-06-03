@@ -206,7 +206,8 @@ svg.icon{width:16px;height:16px;vertical-align:-3px;margin-right:4px;flex-shrink
   justify-content:center;transition:.15s;color:var(--text);
 }
 .notif-btn:hover{background:var(--blue-light);border-color:var(--blue-mid);color:var(--blue)}
-.notif-bell{width:18px;height:18px;flex-shrink:0}
+.notif-btn:hover .notif-bell{stroke:var(--blue)}
+.notif-bell{width:18px;height:18px;flex-shrink:0;display:block;stroke:var(--text)}
 .notif-badge{
   position:absolute;top:-6px;right:-6px;background:#D4537E;color:#fff;
   font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:99px;
