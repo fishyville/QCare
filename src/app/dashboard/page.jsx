@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 /* ─── Constants ─── */
 const ALL_SLOTS = [
   "08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30",
-  "13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00",
+  "13:00","13:30","14:00","14:30","15:00","15:30",
 ];
 
 const Q_COLORS   = ["#B5D4F4","#9FE1CB","#FAC775","#F0997B","#CECBF6"];
@@ -388,15 +388,13 @@ export default function DashboardPage() {
               <h2>Halo, {user.name}</h2>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {myAppointmentId && (
-                <NotificationBell
-                  notifications={notifications}
-                  unreadCount={unreadCount}
-                  open={notifOpen}
-                  onToggle={() => setNotifOpen(p => !p)}
-                  onMarkAllRead={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
-                />
-              )}
+              <NotificationBell
+                notifications={notifications}
+                unreadCount={unreadCount}
+                open={notifOpen}
+                onToggle={() => setNotifOpen(p => !p)}
+                onMarkAllRead={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+              />
               <button className="back-btn" onClick={handleLogout} title="Keluar">
                 <IconLogout /> Keluar
               </button>
