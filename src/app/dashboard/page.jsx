@@ -61,6 +61,18 @@ const IconCheck = () => (
     <polyline points="20 6 9 17 4 12"/>
   </svg>
 );
+const IconX = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="14" height="14">
+    <line x1="18" y1="6" x2="6" y2="18"/>
+    <line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>
+);
+const IconArrowLeft = () => (
+  <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="19" y1="12" x2="5" y2="12"/>
+    <polyline points="12 19 5 12 12 5"/>
+  </svg>
+);
 
 /* ─── Bell Icon ─── */
 const IconBell = () => (
@@ -105,10 +117,11 @@ function NotificationBell({ notifications, unreadCount, open, onToggle, onMarkAl
   );
 }
 
-/* ─── QueueList ─── */
-function QueueList({ items, myAppointmentId, showMeBadge }) {
+/* ─── QueueList ───
+   onCancel: kalau dikasih, tiap item nampilin tombol cancel di kanan (sebelah jam) */
+function QueueList({ items, myAppointmentId, showMeBadge, onCancel, emptyText = "Belum ada antrian." }) {
   if (items.length === 0) {
-    return <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: "12px 0" }}>Belum ada antrian hari ini.</p>;
+    return <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: "12px 0" }}>{emptyText}</p>;
   }
   return (
     <>
@@ -134,6 +147,20 @@ function QueueList({ items, myAppointmentId, showMeBadge }) {
               </div>
             </div>
             <div className="q-time">{slot}</div>
+            {onCancel && (
+              <button
+                onClick={() => onCancel(q)}
+                title="Batalkan antrian ini"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 30, height: 30, marginLeft: 8, flexShrink: 0,
+                  borderRadius: 8, border: "1.5px solid #F3C4C4",
+                  background: "#FFF5F5", color: "#D14343", cursor: "pointer",
+                }}
+              >
+                <IconX />
+              </button>
+            )}
           </div>
         );
       })}
@@ -151,7 +178,7 @@ function CancelModal({ onConfirm, onClose, cancelling }) {
           Batalkan Antrian?
         </h3>
         <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", marginBottom: 20, lineHeight: 1.6 }}>
-          Kamu akan keluar dari antrian hari ini. Kamu bisa daftar ulang jika masih ada slot tersedia.
+          Kamu akan keluar dari antrian ini. Kamu bisa daftar ulang jika masih ada slot tersedia.
         </p>
         <div style={{ display: "flex", gap: 10 }}>
           <button className="btn-outline" onClick={onClose} style={{ flex: 1 }}>Tidak, Tunggu</button>
@@ -178,16 +205,18 @@ export default function DashboardPage() {
   const [errors, setErrors]                   = useState({});
 
   /* API state */
-  const [queue, setQueue]                     = useState([]);
+  const [queue, setQueue]                     = useState([]);   // semua antrian (buat cek slot kepenuhan & posisi)
+  const [myQueue, setMyQueue]                 = useState([]);   // antrianku doang
   const [takenSlots, setTakenSlots]           = useState([]);
   const [loadingQueue, setLoadingQueue]       = useState(false);
+  const [loadingMyQueue, setLoadingMyQueue]   = useState(false);
   const [submitting, setSubmitting]           = useState(false);
   const [cancelling, setCancelling]           = useState(false);
   const [apiError, setApiError]               = useState("");
 
   /* my appointment */
   const [myAppointmentId, setMyAppointmentId] = useState(null);
-  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelTarget, setCancelTarget]       = useState(null); // appointment yg lagi mau dibatalin (null = modal tertutup)
 
   /* dates */
   const [dateStr, setDateStr]                 = useState("");
@@ -209,7 +238,7 @@ export default function DashboardPage() {
     setDateShort(now.toLocaleDateString("id-ID", { weekday:"long", day:"numeric", month:"long" }));
   }, []);
 
-  /* ── Fetch queue ── */
+  /* ── Fetch semua antrian (buat slot availability) ── */
   const fetchQueue = useCallback(async () => {
     setLoadingQueue(true);
     setApiError("");
@@ -227,7 +256,26 @@ export default function DashboardPage() {
     }
   }, []);
 
+  /* ── Fetch antrianku ── */
+  const fetchMyQueue = useCallback(async () => {
+    if (!user) return;
+    setLoadingMyQueue(true);
+    try {
+      // ⚠️ GANTI URL ini sesuai endpoint "antrianku" yang udah lo buat
+      const res  = await fetch(`/api/dashboard?userId=${user.id}`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || "Gagal memuat antrianku");
+      const sorted = [...json.data].sort((a, b) => new Date(a.booking) - new Date(b.booking));
+      setMyQueue(sorted);
+    } catch (err) {
+      setApiError(err.message);
+    } finally {
+      setLoadingMyQueue(false);
+    }
+  }, [user]);
+
   useEffect(() => { fetchQueue(); }, [fetchQueue]);
+  useEffect(() => { if (user) fetchMyQueue(); }, [user, fetchMyQueue]);
 
   /* ── Notifications ── */
   function addNotification(title, body) {
@@ -312,7 +360,6 @@ export default function DashboardPage() {
           booking:     slotToBookingISO(selectedSlot),
         }),
       });
-      console.log(user.id)
       const json = await res.json();
       if (!json.success) throw new Error(json.error || "Gagal membuat antrian");
       setMyAppointmentId(json.data.id);
@@ -320,7 +367,7 @@ export default function DashboardPage() {
       if (typeof window !== "undefined" && Notification.permission === "default") {
         Notification.requestPermission();
       }
-      await fetchQueue();
+      await Promise.all([fetchQueue(), fetchMyQueue()]);
       setScreen("queue");
     } catch (err) {
       setApiError(err.message);
@@ -329,22 +376,39 @@ export default function DashboardPage() {
     }
   }
 
-  /* ── Cancel ── */
+  /* ── Buka modal konfirmasi cancel untuk appointment tertentu ── */
+  function requestCancel(appointment) {
+    setCancelTarget(appointment);
+  }
+
+  /* ── Eksekusi cancel (DELETE) ── */
   async function handleCancel() {
+    if (!cancelTarget) return;
     setCancelling(true);
     try {
-      notifTimersRef.current.forEach(clearTimeout);
-      notifTimersRef.current = [];
-      // await fetch(`/api/dashboard?id=${myAppointmentId}`, { method: "DELETE" });
-      setMyAppointmentId(null);
-      setComplaint("");
-      setSelectedSlot("");
-      setBookStep(1);
-      setErrors({});
+      await fetch("/api/antrianku", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: cancelTarget.id }),
+      });
+
+      // kalau yg dibatalin appointment "utama", reset wizard & balik ke booking
+      if (cancelTarget.id === myAppointmentId) {
+        notifTimersRef.current.forEach(clearTimeout);
+        notifTimersRef.current = [];
+        setMyAppointmentId(null);
+        setComplaint("");
+        setSelectedSlot("");
+        setBookStep(1);
+        setErrors({});
+        setScreen("booking");
+      }
+
       setApiError("");
-      setShowCancelModal(false);
-      await fetchQueue();
-      setScreen("booking");
+      setCancelTarget(null);
+      await Promise.all([fetchQueue(), fetchMyQueue()]);
+    } catch (err) {
+      setApiError(err.message);
     } finally {
       setCancelling(false);
     }
@@ -354,6 +418,15 @@ export default function DashboardPage() {
   function handleLogout() {
     clearSessionUser();
     router.push("/");
+  }
+
+  /* ── Balik ke beranda (booking screen) ── */
+  function goHome() {
+    setScreen("booking");
+    setBookStep(1);
+    setComplaint("");
+    setSelectedSlot("");
+    setErrors({});
   }
 
   if (!user) return null;
@@ -368,10 +441,10 @@ export default function DashboardPage() {
   return (
     <div className="app">
 
-      {showCancelModal && (
+      {cancelTarget && (
         <CancelModal
           onConfirm={handleCancel}
-          onClose={() => setShowCancelModal(false)}
+          onClose={() => setCancelTarget(null)}
           cancelling={cancelling}
         />
       )}
@@ -550,22 +623,28 @@ export default function DashboardPage() {
             </>
           )}
 
-          {/* Live queue */}
+          {/* Antrianku */}
           <div style={{ marginTop: 28 }}>
             <div className="section-head">
-              <div className="section-icon" style={{ background: "var(--blue-light)" }}>
+              <div className="section-icon" style={{ background: "var(--pink-light)" }}>
                 <IconUsers />
               </div>
               <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: 600, fontSize: 14 }}>Antrian Hari Ini ({total})</p>
+                <p style={{ fontWeight: 600, fontSize: 14 }}>Antrianku ({myQueue.length})</p>
               </div>
-              <button className="back-btn" onClick={fetchQueue} disabled={loadingQueue}>
+              <button className="back-btn" onClick={fetchMyQueue} disabled={loadingMyQueue}>
                 <IconRefresh /> Refresh
               </button>
             </div>
-            {loadingQueue
+            {loadingMyQueue
               ? <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Memuat antrian…</p>
-              : <QueueList items={queue} myAppointmentId={null} showMeBadge={false} />
+              : <QueueList
+                  items={myQueue}
+                  myAppointmentId={null}
+                  showMeBadge={false}
+                  onCancel={requestCancel}
+                  emptyText="Kamu belum punya antrian hari ini."
+                />
             }
           </div>
         </div>
@@ -576,9 +655,14 @@ export default function DashboardPage() {
         <div className="page">
 
           <div className="top-bar">
-            <div>
-              <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{dateStr}</p>
-              <h2>Antrianmu</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button className="back-btn" onClick={goHome} title="Kembali ke beranda" style={{ padding: "8px" }}>
+                <IconArrowLeft />
+              </button>
+              <div>
+                <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{dateStr}</p>
+                <h2>Antrianmu</h2>
+              </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <NotificationBell
@@ -639,27 +723,33 @@ export default function DashboardPage() {
 
           {apiError && <div className="info-box pink" style={{ marginBottom: 14 }}>{apiError}</div>}
 
-          {/* Full queue */}
+          {/* Antrianku */}
           <div className="section-head">
-            <div className="section-icon" style={{ background: "var(--blue-light)" }}>
+            <div className="section-icon" style={{ background: "var(--pink-light)" }}>
               <IconUsers />
             </div>
             <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 600, fontSize: 14 }}>Semua Antrian ({total})</p>
+              <p style={{ fontWeight: 600, fontSize: 14 }}>Antrianku ({myQueue.length})</p>
             </div>
-            <button className="back-btn" onClick={fetchQueue} disabled={loadingQueue}>
+            <button className="back-btn" onClick={fetchMyQueue} disabled={loadingMyQueue}>
               <IconRefresh /> Refresh
             </button>
           </div>
-          {loadingQueue
+          {loadingMyQueue
             ? <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Memuat antrian…</p>
-            : <QueueList items={queue} myAppointmentId={myAppointmentId} showMeBadge={true} />
+            : <QueueList
+                items={myQueue}
+                myAppointmentId={myAppointmentId}
+                showMeBadge={false}
+                onCancel={requestCancel}
+                emptyText="Kamu belum punya antrian hari ini."
+              />
           }
 
-          {/* Cancel */}
+          {/* Kembali ke beranda */}
           <div style={{ marginTop: 20 }}>
-            <button className="btn-danger" onClick={() => setShowCancelModal(true)} style={{ width: "100%" }}>
-              Batalkan Antrian
+            <button className="btn-outline" onClick={goHome} style={{ width: "100%" }}>
+              ← Kembali ke Beranda
             </button>
           </div>
         </div>
