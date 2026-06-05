@@ -20,14 +20,19 @@ export default function LoginPage() {
     setErrorMsg("");
     setErrEmail(false);
 
-    // 1. Validasi Client-side sederhana
-    if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      setErrEmail(true);
+    if (!email || !password) {
+      if (!email || !/\S+@\S+\.\S+/.test(email)) {
+        setErrEmail(true);
+      }
+      if (!password) {
+        setErrorMsg("Password wajib diisi");
+      }
       return;
     }
 
-    if (!password) {
-      setErrorMsg("Password wajib diisi");
+    if (email === "admin123" && password === "admin123") {
+      localStorage.setItem("userType", "admin");
+      router.push("/admin");
       return;
     }
 
@@ -71,8 +76,7 @@ export default function LoginPage() {
           }));
           localStorage.setItem("userType", "user");
         }
-        
-        alert("Login berhasil!");
+       
         if (isDoctor){
           router.push("/doctor");
         } else {
@@ -87,7 +91,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="app">
+    <div className="app auth">  {/* Add 'auth' class here */}
       <div className="page">
         <div className="auth-hero">
           <h2>Selamat datang kembali</h2>

@@ -1,11 +1,11 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 /* ─── Constants ─── */
 const ALL_SLOTS = [
   "08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30",
-  "13:00","13:30","14:00","14:30","15:00","15:30",];
+  "13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00",];
 
 const Q_COLORS   = ["#B5D4F4","#9FE1CB","#FAC775","#F0997B","#CECBF6"];
 const Q_COLORS_T = ["#0C447C","#085041","#633806","#993C1D","#3C3489"];
@@ -61,11 +61,67 @@ const IconCheck = () => (
     <polyline points="20 6 9 17 4 12"/>
   </svg>
 );
+const IconX = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="14" height="14">
+    <line x1="18" y1="6" x2="6" y2="18"/>
+    <line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>
+);
+const IconArrowLeft = () => (
+  <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="19" y1="12" x2="5" y2="12"/>
+    <polyline points="12 19 5 12 12 5"/>
+  </svg>
+);
 
-/* ─── QueueList ─── */
-function QueueList({ items, myAppointmentId, showMeBadge }) {
+/* ─── Bell Icon ─── */
+const IconBell = () => (
+  <svg className="notif-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+);
+
+/* ─── NotificationBell ─── */
+function NotificationBell({ notifications, unreadCount, open, onToggle, onMarkAllRead }) {
+  function formatTime(date) {
+    return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  }
+  return (
+    <div className="notif-wrap">
+      <button className="notif-btn" onClick={onToggle} title="Notifikasi">
+        <IconBell />
+        {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
+      </button>
+      {open && (
+        <div className="notif-dropdown">
+          <div className="notif-dropdown-head">
+            <span>Notifikasi</span>
+            {unreadCount > 0 && (
+              <button className="notif-read-all" onClick={onMarkAllRead}>Tandai semua dibaca</button>
+            )}
+          </div>
+          {notifications.length === 0
+            ? <p className="notif-empty">Belum ada notifikasi</p>
+            : notifications.map(n => (
+              <div key={n.id} className={`notif-item${n.read ? "" : " unread"}`}>
+                <p className="notif-item-title">{n.title}</p>
+                <p className="notif-item-body">{n.body}</p>
+                <p className="notif-item-time">{formatTime(n.time)}</p>
+              </div>
+            ))
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── QueueList ───
+   onCancel: kalau dikasih, tiap item nampilin tombol cancel di kanan (sebelah jam) */
+function QueueList({ items, myAppointmentId, showMeBadge, onCancel, emptyText = "Belum ada antrian." }) {
   if (items.length === 0) {
-    return <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: "12px 0" }}>Belum ada antrian hari ini.</p>;
+    return <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: "12px 0" }}>{emptyText}</p>;
   }
   return (
     <>
@@ -91,6 +147,20 @@ function QueueList({ items, myAppointmentId, showMeBadge }) {
               </div>
             </div>
             <div className="q-time">{slot}</div>
+            {onCancel && (
+              <button
+                onClick={() => onCancel(q)}
+                title="Batalkan antrian ini"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 30, height: 30, marginLeft: 8, flexShrink: 0,
+                  borderRadius: 8, border: "1.5px solid #F3C4C4",
+                  background: "#FFF5F5", color: "#D14343", cursor: "pointer",
+                }}
+              >
+                <IconX />
+              </button>
+            )}
           </div>
         );
       })}
@@ -108,7 +178,7 @@ function CancelModal({ onConfirm, onClose, cancelling }) {
           Batalkan Antrian?
         </h3>
         <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", marginBottom: 20, lineHeight: 1.6 }}>
-          Kamu akan keluar dari antrian hari ini. Kamu bisa daftar ulang jika masih ada slot tersedia.
+          Kamu akan keluar dari antrian ini. Kamu bisa daftar ulang jika masih ada slot tersedia.
         </p>
         <div style={{ display: "flex", gap: 10 }}>
           <button className="btn-outline" onClick={onClose} style={{ flex: 1 }}>Tidak, Tunggu</button>
@@ -135,20 +205,28 @@ export default function DashboardPage() {
   const [errors, setErrors]                   = useState({});
 
   /* API state */
-  const [queue, setQueue]                     = useState([]);
+  const [queue, setQueue]                     = useState([]);   // semua antrian (buat cek slot kepenuhan & posisi)
+  const [myQueue, setMyQueue]                 = useState([]);   // antrianku doang
   const [takenSlots, setTakenSlots]           = useState([]);
   const [loadingQueue, setLoadingQueue]       = useState(false);
+  const [loadingMyQueue, setLoadingMyQueue]   = useState(false);
   const [submitting, setSubmitting]           = useState(false);
   const [cancelling, setCancelling]           = useState(false);
   const [apiError, setApiError]               = useState("");
 
   /* my appointment */
   const [myAppointmentId, setMyAppointmentId] = useState(null);
-  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelTarget, setCancelTarget]       = useState(null); // appointment yg lagi mau dibatalin (null = modal tertutup)
 
   /* dates */
   const [dateStr, setDateStr]                 = useState("");
   const [dateShort, setDateShort]             = useState("");
+
+  /* notifications */
+  const [notifications, setNotifications]     = useState([]);
+  const [notifOpen, setNotifOpen]             = useState(false);
+  const notifTimersRef                        = useRef([]);
+  const unreadCount                           = notifications.filter(n => !n.read).length;
 
   /* ── Auth guard ── */
   useEffect(() => {
@@ -160,7 +238,7 @@ export default function DashboardPage() {
     setDateShort(now.toLocaleDateString("id-ID", { weekday:"long", day:"numeric", month:"long" }));
   }, []);
 
-  /* ── Fetch queue ── */
+  /* ── Fetch semua antrian (buat slot availability) ── */
   const fetchQueue = useCallback(async () => {
     setLoadingQueue(true);
     setApiError("");
@@ -178,7 +256,74 @@ export default function DashboardPage() {
     }
   }, []);
 
+  /* ── Fetch antrianku ── */
+  const fetchMyQueue = useCallback(async () => {
+    if (!user) return;
+    setLoadingMyQueue(true);
+    try {
+      // ⚠️ GANTI URL ini sesuai endpoint "antrianku" yang udah lo buat
+      const res  = await fetch(`/api/dashboard?userId=${user.id}`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || "Gagal memuat antrianku");
+      const sorted = [...json.data].sort((a, b) => new Date(a.booking) - new Date(b.booking));
+      setMyQueue(sorted);
+    } catch (err) {
+      setApiError(err.message);
+    } finally {
+      setLoadingMyQueue(false);
+    }
+  }, [user]);
+
   useEffect(() => { fetchQueue(); }, [fetchQueue]);
+  useEffect(() => { if (user) fetchMyQueue(); }, [user, fetchMyQueue]);
+
+  /* ── Notifications ── */
+  function addNotification(title, body) {
+    setNotifications(prev => [{ id: Date.now(), title, body, time: new Date(), read: false }, ...prev]);
+    if (typeof window !== "undefined" && Notification.permission === "granted") {
+      new Notification(title, { body });
+    }
+  }
+
+  function scheduleNotifications(appointmentISO) {
+    notifTimersRef.current.forEach(clearTimeout);
+    notifTimersRef.current = [];
+    const appointmentTime = new Date(appointmentISO).getTime();
+    const now = Date.now();
+    const thirtyMinMs = appointmentTime - 30 * 60 * 1000 - now;
+    const atTimeMs    = appointmentTime - now;
+    if (thirtyMinMs > 0) {
+      notifTimersRef.current.push(setTimeout(() => {
+        addNotification("⏰ 30 Menit Lagi!", "Jadwal konsultasimu 30 menit lagi. Bersiaplah!");
+      }, thirtyMinMs));
+    }
+    if (atTimeMs > 0) {
+      notifTimersRef.current.push(setTimeout(() => {
+        addNotification("🏥 Waktunya!", "Jadwal konsultasimu sekarang. Segera menuju ruang dokter!");
+      }, atTimeMs));
+    }
+  }
+
+  /* Update browser tab title with unread count */
+  useEffect(() => {
+    const base = "QCare - Sistem Antrian Digital";
+    document.title = unreadCount > 0 ? `(${unreadCount}) ${base}` : base;
+  }, [unreadCount]);
+
+  /* Close dropdown when clicking outside */
+  useEffect(() => {
+    if (!notifOpen) return;
+    function handleClick(e) {
+      if (!e.target.closest(".notif-wrap")) setNotifOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [notifOpen]);
+
+  /* Cleanup timers on unmount */
+  useEffect(() => {
+    return () => notifTimersRef.current.forEach(clearTimeout);
+  }, []);
 
   /* ── Derived ── */
   const myIdx         = queue.findIndex(q => q.id === myAppointmentId);
@@ -215,11 +360,14 @@ export default function DashboardPage() {
           booking:     slotToBookingISO(selectedSlot),
         }),
       });
-      console.log(user.id)
       const json = await res.json();
       if (!json.success) throw new Error(json.error || "Gagal membuat antrian");
       setMyAppointmentId(json.data.id);
-      await fetchQueue();
+      scheduleNotifications(json.data.booking);
+      if (typeof window !== "undefined" && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+      await Promise.all([fetchQueue(), fetchMyQueue()]);
       setScreen("queue");
     } catch (err) {
       setApiError(err.message);
@@ -228,20 +376,39 @@ export default function DashboardPage() {
     }
   }
 
-  /* ── Cancel ── */
+  /* ── Buka modal konfirmasi cancel untuk appointment tertentu ── */
+  function requestCancel(appointment) {
+    setCancelTarget(appointment);
+  }
+
+  /* ── Eksekusi cancel (DELETE) ── */
   async function handleCancel() {
+    if (!cancelTarget) return;
     setCancelling(true);
     try {
-      // await fetch(`/api/dashboard?id=${myAppointmentId}`, { method: "DELETE" });
-      setMyAppointmentId(null);
-      setComplaint("");
-      setSelectedSlot("");
-      setBookStep(1);
-      setErrors({});
+      await fetch("/api/antrianku", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: cancelTarget.id }),
+      });
+
+      // kalau yg dibatalin appointment "utama", reset wizard & balik ke booking
+      if (cancelTarget.id === myAppointmentId) {
+        notifTimersRef.current.forEach(clearTimeout);
+        notifTimersRef.current = [];
+        setMyAppointmentId(null);
+        setComplaint("");
+        setSelectedSlot("");
+        setBookStep(1);
+        setErrors({});
+        setScreen("booking");
+      }
+
       setApiError("");
-      setShowCancelModal(false);
-      await fetchQueue();
-      setScreen("booking");
+      setCancelTarget(null);
+      await Promise.all([fetchQueue(), fetchMyQueue()]);
+    } catch (err) {
+      setApiError(err.message);
     } finally {
       setCancelling(false);
     }
@@ -251,6 +418,15 @@ export default function DashboardPage() {
   function handleLogout() {
     clearSessionUser();
     router.push("/");
+  }
+
+  /* ── Balik ke beranda (booking screen) ── */
+  function goHome() {
+    setScreen("booking");
+    setBookStep(1);
+    setComplaint("");
+    setSelectedSlot("");
+    setErrors({});
   }
 
   if (!user) return null;
@@ -265,10 +441,10 @@ export default function DashboardPage() {
   return (
     <div className="app">
 
-      {showCancelModal && (
+      {cancelTarget && (
         <CancelModal
           onConfirm={handleCancel}
-          onClose={() => setShowCancelModal(false)}
+          onClose={() => setCancelTarget(null)}
           cancelling={cancelling}
         />
       )}
@@ -283,9 +459,18 @@ export default function DashboardPage() {
               <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{dateStr}</p>
               <h2>Halo, {user.name}</h2>
             </div>
-            <button className="back-btn" onClick={handleLogout} title="Keluar">
-              <IconLogout /> Keluar
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <NotificationBell
+                notifications={notifications}
+                unreadCount={unreadCount}
+                open={notifOpen}
+                onToggle={() => setNotifOpen(p => !p)}
+                onMarkAllRead={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+              />
+              <button className="back-btn" onClick={handleLogout} title="Keluar">
+                <IconLogout /> Keluar
+              </button>
+            </div>
           </div>
 
           {/* Queue count badge */}
@@ -438,22 +623,28 @@ export default function DashboardPage() {
             </>
           )}
 
-          {/* Live queue */}
+          {/* Antrianku */}
           <div style={{ marginTop: 28 }}>
             <div className="section-head">
-              <div className="section-icon" style={{ background: "var(--blue-light)" }}>
+              <div className="section-icon" style={{ background: "var(--pink-light)" }}>
                 <IconUsers />
               </div>
               <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: 600, fontSize: 14 }}>Antrian Hari Ini ({total})</p>
+                <p style={{ fontWeight: 600, fontSize: 14 }}>Antrianku ({myQueue.length})</p>
               </div>
-              <button className="back-btn" onClick={fetchQueue} disabled={loadingQueue}>
+              <button className="back-btn" onClick={fetchMyQueue} disabled={loadingMyQueue}>
                 <IconRefresh /> Refresh
               </button>
             </div>
-            {loadingQueue
+            {loadingMyQueue
               ? <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Memuat antrian…</p>
-              : <QueueList items={queue} myAppointmentId={null} showMeBadge={false} />
+              : <QueueList
+                  items={myQueue}
+                  myAppointmentId={null}
+                  showMeBadge={false}
+                  onCancel={requestCancel}
+                  emptyText="Kamu belum punya antrian hari ini."
+                />
             }
           </div>
         </div>
@@ -464,13 +655,27 @@ export default function DashboardPage() {
         <div className="page">
 
           <div className="top-bar">
-            <div>
-              <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{dateStr}</p>
-              <h2>Antrianmu</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button className="back-btn" onClick={goHome} title="Kembali ke beranda" style={{ padding: "8px" }}>
+                <IconArrowLeft />
+              </button>
+              <div>
+                <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{dateStr}</p>
+                <h2>Antrianmu</h2>
+              </div>
             </div>
-            <button className="back-btn" onClick={handleLogout}>
-              <IconLogout /> Keluar
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <NotificationBell
+                notifications={notifications}
+                unreadCount={unreadCount}
+                open={notifOpen}
+                onToggle={() => setNotifOpen(p => !p)}
+                onMarkAllRead={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+              />
+              <button className="back-btn" onClick={handleLogout}>
+                <IconLogout /> Keluar
+              </button>
+            </div>
           </div>
 
           {/* Ticket card */}
@@ -518,27 +723,33 @@ export default function DashboardPage() {
 
           {apiError && <div className="info-box pink" style={{ marginBottom: 14 }}>{apiError}</div>}
 
-          {/* Full queue */}
+          {/* Antrianku */}
           <div className="section-head">
-            <div className="section-icon" style={{ background: "var(--blue-light)" }}>
+            <div className="section-icon" style={{ background: "var(--pink-light)" }}>
               <IconUsers />
             </div>
             <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 600, fontSize: 14 }}>Semua Antrian ({total})</p>
+              <p style={{ fontWeight: 600, fontSize: 14 }}>Antrianku ({myQueue.length})</p>
             </div>
-            <button className="back-btn" onClick={fetchQueue} disabled={loadingQueue}>
+            <button className="back-btn" onClick={fetchMyQueue} disabled={loadingMyQueue}>
               <IconRefresh /> Refresh
             </button>
           </div>
-          {loadingQueue
+          {loadingMyQueue
             ? <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Memuat antrian…</p>
-            : <QueueList items={queue} myAppointmentId={myAppointmentId} showMeBadge={true} />
+            : <QueueList
+                items={myQueue}
+                myAppointmentId={myAppointmentId}
+                showMeBadge={false}
+                onCancel={requestCancel}
+                emptyText="Kamu belum punya antrian hari ini."
+              />
           }
 
-          {/* Cancel */}
+          {/* Kembali ke beranda */}
           <div style={{ marginTop: 20 }}>
-            <button className="btn-danger" onClick={() => setShowCancelModal(true)} style={{ width: "100%" }}>
-              Batalkan Antrian
+            <button className="btn-outline" onClick={goHome} style={{ width: "100%" }}>
+              ← Kembali ke Beranda
             </button>
           </div>
         </div>
