@@ -49,7 +49,7 @@ export default function AdminRegisterDoctor() {
     <div className="app">
       <div className="page">
         <Link href="/dashboard" className="back-btn">
-          ← Kembali ke Dashboard
+          Kembali ke Dashboard
         </Link>
         
         <div className="auth-hero">

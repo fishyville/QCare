@@ -258,7 +258,7 @@ const fetchQueue = useCallback(async () => {
       {showDoneModal && (
         <div className="modal-overlay show" onClick={() => setShowDoneModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <p style={{ fontSize: 28, textAlign: "center", marginBottom: 10 }}>✅</p>
+            <p style={{ fontSize: 28, textAlign: "center", marginBottom: 10 }}></p>
             <h3 style={{ fontFamily: "'DM Serif Display',serif", fontSize: 20, marginBottom: 8, textAlign: "center" }}>
               Selesai Periksa?
             </h3>
