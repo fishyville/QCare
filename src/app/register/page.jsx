@@ -66,7 +66,6 @@ export default function RegisterPage() {
       if (!res.ok) {
         setErrorMsg(data.error || "Registrasi gagal");
       } else {
-        alert("Register berhasil!");
         router.push("/login");
       }
     } catch (err) {
