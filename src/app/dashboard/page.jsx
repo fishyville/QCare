@@ -330,14 +330,6 @@ export default function DashboardPage() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [notifOpen]);
 
-  /* ── Auto trigger test notification on mount ── */
-  useEffect(() => {
-    if (user && !testNotifSentRef.current) {
-      testNotifSentRef.current = true;
-      setTimeout(() => sendTestNotification(), 500);
-    }
-  }, [user]);
-
   /* ── Derived ── */
   const myIdx         = queue.findIndex(q => q.id === myAppointmentId);
   const total         = queue.length;
