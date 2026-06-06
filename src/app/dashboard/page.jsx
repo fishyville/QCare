@@ -226,6 +226,7 @@ export default function DashboardPage() {
   const [notifications, setNotifications]     = useState([]);
   const [notifOpen, setNotifOpen]             = useState(false);
   const notifTimersRef                        = useRef([]);
+  const testNotifSentRef                      = useRef(false);
   const unreadCount                           = notifications.filter(n => !n.read).length;
 
   /* ── Auth guard ── */
@@ -270,6 +271,12 @@ export default function DashboardPage() {
       if (!json.success) throw new Error(json.error || "Gagal memuat antrianku");
       const sorted = [...json.data].sort((a, b) => new Date(a.booking) - new Date(b.booking));
       setMyQueue(sorted);
+      
+      if (sorted.length > 0) {
+        const firstAppointment = sorted[0];
+        setMyAppointmentId(firstAppointment.id);
+        scheduleNotifications(firstAppointment.booking);
+      }
     } catch (err) {
       setApiError(err.message);
     } finally {
@@ -327,6 +334,21 @@ export default function DashboardPage() {
   useEffect(() => {
     return () => notifTimersRef.current.forEach(clearTimeout);
   }, []);
+
+  function sendTestNotification() {
+    addNotification("⏰ 30 Menit Lagi!", "Jadwal konsultasimu 30 menit lagi. Bersiaplah!");
+    if (typeof window !== "undefined" && Notification.permission === "granted") {
+      new Notification("⏰ 30 Menit Lagi!", { body: "Jadwal konsultasimu 30 menit lagi. Bersiaplah!" });
+    }
+  }
+
+  /* ── Auto trigger test notification on mount ── */
+  useEffect(() => {
+    if (user && !testNotifSentRef.current) {
+      testNotifSentRef.current = true;
+      setTimeout(() => sendTestNotification(), 500);
+    }
+  }, [user]);
 
   /* ── Derived ── */
   const myIdx         = queue.findIndex(q => q.id === myAppointmentId);
