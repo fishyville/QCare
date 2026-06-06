@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 /* ─── Helpers ─── */
 function bookingToSlot(isoString) {
   const d = new Date(isoString);
-  return d.toTimeString().slice(0, 5);
+  return d.toISOString().split('T')[1].slice(0, 5);
 }
 
 function getDoctor() {
