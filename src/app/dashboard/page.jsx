@@ -330,18 +330,6 @@ export default function DashboardPage() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [notifOpen]);
 
-  /* Cleanup timers on unmount */
-  useEffect(() => {
-    return () => notifTimersRef.current.forEach(clearTimeout);
-  }, []);
-
-  function sendTestNotification() {
-    addNotification("⏰ 30 Menit Lagi!", "Jadwal konsultasimu 30 menit lagi. Bersiaplah!");
-    if (typeof window !== "undefined" && Notification.permission === "granted") {
-      new Notification("⏰ 30 Menit Lagi!", { body: "Jadwal konsultasimu 30 menit lagi. Bersiaplah!" });
-    }
-  }
-
   /* ── Auto trigger test notification on mount ── */
   useEffect(() => {
     if (user && !testNotifSentRef.current) {
