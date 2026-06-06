@@ -60,10 +60,22 @@ export async function POST(req) {
       );
     }
 
+    // Tentukan awal dan akhir hari ini dalam UTC
+    const startOfDay = new Date();
+    startOfDay.setUTCHours(0, 0, 0, 0);
+
+    const endOfDay = new Date();
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
     // Cari semua antrian berdasarkan userId
     const userAppointments = await prisma.appointment.findMany({
       where: {
         userId: userId,
+        status: "WAITING",
+        booking: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
       },
       orderBy: {
         booking: "asc", // Urutkan berdasarkan tanggal booking terlama ke terbaru

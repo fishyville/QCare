@@ -13,7 +13,7 @@ const Q_COLORS_T = ["#0C447C","#085041","#633806","#993C1D","#3C3489"];
 /* ─── Helpers ─── */
 function slotToBookingISO(slot) {
   const today = new Date().toISOString().split("T")[0];
-  return `${today}T${slot}:00`;
+  return `${today}T${slot}:00Z`;
 }
 
 function bookingToSlot(isoString) {
@@ -261,8 +261,11 @@ export default function DashboardPage() {
     if (!user) return;
     setLoadingMyQueue(true);
     try {
-      // ⚠️ GANTI URL ini sesuai endpoint "antrianku" yang udah lo buat
-      const res  = await fetch(`/api/dashboard?userId=${user.id}`);
+      const res  = await fetch("/api/antrianku", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id }),
+      });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || "Gagal memuat antrianku");
       const sorted = [...json.data].sort((a, b) => new Date(a.booking) - new Date(b.booking));
