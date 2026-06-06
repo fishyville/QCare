@@ -55,6 +55,14 @@ export async function POST(req) {
       );
     }
 
+    const bookingDate = new Date(booking);
+    if (isNaN(bookingDate.getTime())) {
+      return Response.json(
+        { success: false, error: "Format booking time tidak valid" },
+        { status: 400 }
+      );
+    }
+
     // Find the last appointment to get the highest number
     const lastAppointment = await prisma.appointment.findFirst({
       orderBy: {
@@ -80,7 +88,7 @@ export async function POST(req) {
         userId: userId,
         doctorId: "D01",
         status: "WAITING",
-        booking: new Date(booking),
+        booking: bookingDate,
         startAppointment: null,
         endAppointment: null
       },
